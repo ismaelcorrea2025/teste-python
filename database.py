@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+# Banco de dados SQLite simples
 SQLALCHEMY_DATABASE_URL = "sqlite:///./ecommerce.db"
 
 engine = create_engine(
