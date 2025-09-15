@@ -1,12 +1,11 @@
 # ---------------- IMPORTS ----------------
-from fastapi import FastAPI
-app = FastAPI()
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timedelta
-from jose import JWTError, jwt  # ✅ Corrigido: usando python-jose
+from jose import JWTError, jwt
 
 from database import engine, SessionLocal
 from models_base import Base
@@ -23,6 +22,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 # ---------------- INICIALIZAÇÃO ----------------
 app = FastAPI(title="E-commerce API")
+
+# Middleware CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Ajuste para seu frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Cria tabelas no banco
 Base.metadata.create_all(bind=engine)
 
 # ---------------- DEPENDÊNCIA DO BANCO ----------------
@@ -39,7 +49,7 @@ class User(BaseModel):
     username: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Pydantic v2
 
 class Product(BaseModel):
     id: int
@@ -47,7 +57,7 @@ class Product(BaseModel):
     price: float
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ProductCreate(BaseModel):
     name: str
@@ -58,7 +68,7 @@ class CartItem(BaseModel):
     product: Product
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # ---------------- FUNÇÕES AUXILIARES ----------------
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -80,12 +90,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido ou expirado")
 
+# ---------------- ROTA RAIZ ----------------
+@app.get("/")
+def root():
+    return {"message": "API E-commerce funcionando!"}
+
 # ---------------- AUTENTICAÇÃO ----------------
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(UserDB).filter(
         UserDB.username == form_data.username,
-        UserDB.password == form_data.password  # ⚠️ Em produção, use hash!
+        UserDB.password == form_data.password  # ⚠️ Use hash em produção!
     ).first()
     if not user:
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
